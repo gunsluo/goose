@@ -4,10 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 
-	"github.com/kylelemons/go-gypsy/yaml"
 	"github.com/lib/pq"
 )
 
@@ -28,26 +26,7 @@ type DBConf struct {
 }
 
 // extract configuration details from the given file
-func NewDBConf(p, env string, pgschema string) (*DBConf, error) {
-
-	cfgFile := filepath.Join(p, "dbconf.yml")
-
-	f, err := yaml.ReadFile(cfgFile)
-	if err != nil {
-		return nil, err
-	}
-
-	drv, err := f.Get(fmt.Sprintf("%s.driver", env))
-	if err != nil {
-		return nil, err
-	}
-	drv = os.ExpandEnv(drv)
-
-	open, err := f.Get(fmt.Sprintf("%s.open", env))
-	if err != nil {
-		return nil, err
-	}
-	open = os.ExpandEnv(open)
+func NewDBConf(p, env string, pgschema string, drv, open string) (*DBConf, error) {
 
 	// Automatically parse postgres urls
 	if drv == "postgres" {
@@ -60,22 +39,12 @@ func NewDBConf(p, env string, pgschema string) (*DBConf, error) {
 
 	d := newDBDriver(drv, open)
 
-	// allow the configuration to override the Import for this driver
-	if imprt, err := f.Get(fmt.Sprintf("%s.import", env)); err == nil {
-		d.Import = imprt
-	}
-
-	// allow the configuration to override the Dialect for this driver
-	if dialect, err := f.Get(fmt.Sprintf("%s.dialect", env)); err == nil {
-		d.Dialect = dialectByName(dialect)
-	}
-
 	if !d.IsValid() {
 		return nil, errors.New(fmt.Sprintf("Invalid DBConf: %v", d))
 	}
 
 	return &DBConf{
-		MigrationsDir: filepath.Join(p, "migrations"),
+		MigrationsDir: filepath.Join(p, "cases"),
 		Env:           env,
 		Driver:        d,
 		PgSchema:      pgschema,

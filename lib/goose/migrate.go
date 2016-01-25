@@ -48,7 +48,7 @@ func newMigration(v int64, src string) *Migration {
 	return &Migration{v, -1, -1, src}
 }
 
-func RunMigrations(conf *DBConf, migrationsDir string, target int64) (err error) {
+func RunMigrations(conf *DBConf, migrationsDir string, target string, direction bool) (err error) {
 
 	db, err := OpenDBFromDBConf(conf)
 	if err != nil {
@@ -56,48 +56,29 @@ func RunMigrations(conf *DBConf, migrationsDir string, target int64) (err error)
 	}
 	defer db.Close()
 
-	return RunMigrationsOnDb(conf, migrationsDir, target, db)
+	return RunMigrationsOnDb(conf, migrationsDir, target, db, direction)
 }
 
 // Runs migration on a specific database instance.
-func RunMigrationsOnDb(conf *DBConf, migrationsDir string, target int64, db *sql.DB) (err error) {
-	current, err := EnsureDBVersion(conf, db)
+func RunMigrationsOnDb(conf *DBConf, migrationsDir string, target string, db *sql.DB, direction bool) (err error) {
+
+	fmt.Printf("goose: migrating db environment '%v', target: %s\n", conf.Env, target)
+
+	m := Migration{
+		Source: target}
+
+	switch filepath.Ext(m.Source) {
+	case ".go":
+		err = runGoMigration(conf, migrationsDir+m.Source, m.Version, direction)
+	case ".sql":
+		err = runSQLMigration(conf, db, migrationsDir+"/"+m.Source, m.Version, direction)
+	}
+
 	if err != nil {
-		return err
+		return errors.New(fmt.Sprintf("FAIL %v, quitting migration", err))
 	}
 
-	migrations, err := CollectMigrations(migrationsDir, current, target)
-	if err != nil {
-		return err
-	}
-
-	if len(migrations) == 0 {
-		fmt.Printf("goose: no migrations to run. current version: %d\n", current)
-		return nil
-	}
-
-	ms := migrationSorter(migrations)
-	direction := current < target
-	ms.Sort(direction)
-
-	fmt.Printf("goose: migrating db environment '%v', current version: %d, target: %d\n",
-		conf.Env, current, target)
-
-	for _, m := range ms {
-
-		switch filepath.Ext(m.Source) {
-		case ".go":
-			err = runGoMigration(conf, m.Source, m.Version, direction)
-		case ".sql":
-			err = runSQLMigration(conf, db, m.Source, m.Version, direction)
-		}
-
-		if err != nil {
-			return errors.New(fmt.Sprintf("FAIL %v, quitting migration", err))
-		}
-
-		fmt.Println("OK   ", filepath.Base(m.Source))
-	}
+	fmt.Println("OK   ", filepath.Base(m.Source))
 
 	return nil
 }
