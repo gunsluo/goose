@@ -92,6 +92,7 @@ func (drv *DBDriver) IsValid() bool {
 //
 // Callers must Close() the returned DB.
 func OpenDBFromDBConf(conf *DBConf) (*sql.DB, error) {
+
 	db, err := sql.Open(conf.Driver.Name, conf.Driver.OpenStr)
 	if err != nil {
 		return nil, err

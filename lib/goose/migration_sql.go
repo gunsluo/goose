@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/axgle/mahonia"
 )
 
 const sqlCmdPrefix = "-- +goose "
@@ -44,7 +46,10 @@ func endsWithSemicolon(line string) bool {
 func splitSQLStatements(r io.Reader, direction bool) (stmts []string) {
 
 	var buf bytes.Buffer
-	scanner := bufio.NewScanner(r)
+
+	decoder := mahonia.NewDecoder("gb18030")
+	scanner := bufio.NewScanner(decoder.NewReader(r))
+	//scanner := bufio.NewScanner(r)
 
 	// track the count of each section
 	// so we can diagnose scripts with no annotations
